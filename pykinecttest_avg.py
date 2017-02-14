@@ -7,6 +7,8 @@ import ctypes
 import _ctypes
 import pygame
 import sys
+import os
+import time
 
 import Buttons
 
@@ -23,12 +25,12 @@ SKELETON_COLORS = [pygame.color.THECOLORS["red"],
                   pygame.color.THECOLORS["purple"], 
                   pygame.color.THECOLORS["yellow"], 
                   pygame.color.THECOLORS["violet"]]
-
-
+ 
 class BodyGameRuntime(object):
-    recording = False
     def __init__(self):
         pygame.init()
+        
+        self.f1 = None
         
         self.Button1 = Buttons.Button()
 
@@ -126,7 +128,7 @@ class BodyGameRuntime(object):
         # -------- Main Program Loop -----------
         while not self._done:
             # --- Main event loop
-            buttonstr = "Click to Record" if not self.recording else "Recording: Click to Stop"
+            buttonstr = "Click to Record" if self.f1 is None else "Recording: Click to Stop"
             w, h = pygame.display.get_surface().get_size()
             self.Button1.create_button(self._screen, (107,142,35), w * .5, h * .9, 200,    100,    0,        buttonstr, (255,255,255))
             
@@ -136,8 +138,12 @@ class BodyGameRuntime(object):
                     
                 elif event.type == MOUSEBUTTONDOWN:
                     if self.Button1.pressed(pygame.mouse.get_pos()):
-                        self.recording = not self.recording
-
+                        if self.f1 == None:
+                            self.f1=open(os.getcwd() + '/kinect_skeleton_data_' + str(time.time()) + '.txt', 'w')
+                        else:
+                            self.f1.close()
+                            self.f1 = None
+                            
                 elif event.type == pygame.VIDEORESIZE: # window resized
                     self._screen = pygame.display.set_mode(event.dict['size'], 
                                                pygame.HWSURFACE|pygame.DOUBLEBUF|pygame.RESIZABLE, 32)
@@ -156,6 +162,7 @@ class BodyGameRuntime(object):
                 self._bodies = self._kinect.get_last_body_frame()
 
             # --- draw skeletons to _frame_surface
+            listoflistofnumbers = []
             if self._bodies is not None: 
                 for i in range(0, self._kinect.max_body_count):
                     body = self._bodies.bodies[i]
@@ -173,9 +180,18 @@ class BodyGameRuntime(object):
                     center_points.append(joint_points[PyKinectV2.JointType_SpineBase])
                     center_points.append(joint_points[PyKinectV2.JointType_HipRight])
                     center_points.append(joint_points[PyKinectV2.JointType_HipLeft])
-                    print [(point.x, point.y) for point in center_points]
+                   
+                    listofnumbers = [(point.x, point.y) for point in center_points]
+                    
+                    listofnumbers = str(listofnumbers) + "\n\n"
+                    listoflistofnumbers.append(listofnumbers)
                     self.draw_body(joints, joint_points, SKELETON_COLORS[i])
-
+                
+            if (not self.f1 is None):
+                stringifiedlistoflistofnumbers = str(listoflistofnumbers) + "\n\n"
+                print stringifiedlistoflistofnumbers
+                self.f1.write(stringifiedlistoflistofnumbers)
+                    
             # --- copy back buffer surface pixels to the screen, resize it if needed and keep aspect ratio
             # --- (screen size may be different from Kinect's color frame size) 
             h_to_w = float(self._frame_surface.get_height()) / self._frame_surface.get_width()
